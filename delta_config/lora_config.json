@@ -1,0 +1,8 @@
+{
+    "delta_type": "lora",
+    "lora_r": 8,
+    "lora_alpha": 8,
+    "modified_modules": [
+        "c_attn"
+    ]
+}

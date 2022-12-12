@@ -42,6 +42,7 @@ def get_parser():
     parser.add_argument("--ending_bonus", type=float, default=2, help='How much to help the sentence to end')
     parser.add_argument("--end_token", type=str, default=".", help="Token to end text")
     parser.add_argument("--pairs_path", type=str, default="")
+    parser.add_argument("--delta_path", default="./delta_config/lora_config.json")
 
     parser.add_argument('--data_path', type=str, default='/home/work/Datasets/MSR-VTT/examples/video7157.mp4')
     parser.add_argument('--run_type',
@@ -130,6 +131,7 @@ def run_video(args, video_path):
 
 def run_image(args, image_path):
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(device)
     text_generator = CLIPTextGenerator(**vars(args))
 
     image = get_clip_image(image_path, text_generator.clip_preprocess).to(device)
@@ -147,6 +149,7 @@ def run_image(args, image_path):
 if __name__ == "__main__":
     torch.set_num_threads(3)
     cli_args = get_parser().parse_args()
+    print(cli_args)
 
     if cli_args.run_type == 'caption_videos':
         run_video(cli_args, cli_args.data_path)

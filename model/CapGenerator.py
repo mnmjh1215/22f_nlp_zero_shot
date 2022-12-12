@@ -16,6 +16,7 @@ import sys
 import random
 import logging
 
+from opendelta import AutoDeltaConfig, AutoDeltaModel
 
 def log_info(text, verbose=True):
     if verbose:
@@ -48,6 +49,9 @@ class CLIPTextGenerator:
                  randomized_prompt=False,
                  token_wise=False,
                  num_dummy_tokens=5,
+                 delta_path=None,
+                 lora_r=8,
+                 lora_alpha=8,
                  sentence_iterations=64,
                  clip_loss_temperature=1.0,
                  sampling_top_k=3,
@@ -82,11 +86,28 @@ class CLIPTextGenerator:
             self.lm_model = GPT2LMHeadModel.from_pretrained('gpt2-medium', output_hidden_states=True)
             self.context_prefix = self.lm_tokenizer.bos_token
         self.lm_tokenizer.pad_token = self.lm_tokenizer.eos_token
-        self.lm_model.to(self.device)
-        self.lm_model.eval()
-        # Freeze LM weights
-        for param in self.lm_model.parameters():
-            param.requires_grad = False
+        
+        if delta_path != None:
+            import json
+            with open(delta_path, 'r') as f:
+                self.delta = json.load(f)
+
+            # delta_config = AutoDeltaConfig.from_dict({"delta_type":"lora", "lora_r":lora_r, "lora_alpha":lora_alpha, "modified_modules":["c_attn"]})
+            delta_config = AutoDeltaConfig.from_dict(self.delta)
+
+            delta_model = AutoDeltaModel.from_config(delta_config, backbone_model=self.lm_model) # GPT2에 delta model 붙였음!
+            delta_model.freeze_module(exclude=["deltas", "ln_1", "ln_2", "ln_f"],set_state_dict = True) # delta model, ln_1, ln_2, ln_f 빼고는 다 freeze 시켰음.
+            delta_model.log(delta_ratio=True, trainable_ratio=True, visualization=True) # 어디에 붙였는지 시각화해서 보여줌.
+
+            self.lm_model.to(self.device)
+        
+        else:
+            self.delta = None
+            self.lm_model.to(self.device)
+            self.lm_model.eval()
+            # Freeze LM weights
+            for param in self.lm_model.parameters():
+                param.requires_grad = False
 
         dummy_tokens = self.lm_tokenizer.encode([self.lm_tokenizer.bos_token for _ in range(num_dummy_tokens)])
         dummy_tokens = torch.tensor(dummy_tokens, device=self.device, dtype=torch.long).unsqueeze(0)
@@ -96,8 +117,11 @@ class CLIPTextGenerator:
         self.dummy_context_offset = [(torch.nn.Parameter(torch.zeros(k.shape).type_as(k)),
                                       torch.nn.Parameter(torch.zeros(v.shape).type_as(v)))
                                      for k, v in self.dummy_context_init]
-        self.dummy_optimizer = torch.optim.AdamW([x for pair in self.dummy_context_offset for x in pair],
-                                                 lr=learning_rate, weight_decay=learning_rate * weight_decay_scale)
+                        
+        if delta_path != None:
+            self.dummy_optimizer = torch.optim.AdamW([{'params': self.lm_model.parameters()}], lr=learning_rate, weight_decay=learning_rate * weight_decay_scale)
+        else:
+            self.dummy_optimizer = torch.optim.AdamW([x for pair in self.dummy_context_offset for x in pair], lr=learning_rate, weight_decay=learning_rate * weight_decay_scale)
         self.dummy_optimizer_init = self.dummy_optimizer.state_dict()
 
         # Below options must be 2 tokens only to avoid alignment issues
@@ -254,7 +278,7 @@ class CLIPTextGenerator:
             features = features / features.norm(dim=-1, keepdim=True)
             return features.detach()
 
-    def generate(self, image_features: torch.Tensor):
+    def generate(self, image_features: torch.Tensor, verbose=False):
         self.image_features = image_features
         self.dummy_context_reset()
 
@@ -284,7 +308,11 @@ class CLIPTextGenerator:
                 unshifted_logits = unshifted_outputs["logits"][:, -1, :]
                 unshifted_probs = nn.functional.softmax(unshifted_logits, dim=-1)
 
-                shifted_outputs = self.lm_model(generated_tokens, past_key_values=self.dummy_context)
+                if self.delta == True:
+                    shifted_outputs = self.lm_model(generated_tokens)
+                else:
+                    shifted_outputs = self.lm_model(generated_tokens, past_key_values=self.dummy_context)
+                
                 logits = shifted_outputs["logits"][:, -1, :]
                 probs = nn.functional.softmax(logits, dim=-1) + 2e-45
 
@@ -323,7 +351,7 @@ class CLIPTextGenerator:
             decoded_text = self.lm_tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
             avg_perplexity = total_perplexity / i
             avg_frame_sim = self.text_to_video_similarity(decoded_text)
-            print(f"(Index: {gd_iter}, Len: {i + 1}, "
+            logging.info(f"(Index: {gd_iter}, Len: {i + 1}, "
                          f"Avg clip: {avg_frame_sim.mean().item():.4f}, "
                          f"Avg ppl: {avg_perplexity.mean().item():.4f}): "
                          f"\"{decoded_text}\"")
@@ -335,8 +363,8 @@ class CLIPTextGenerator:
             logging.debug(f'Unscaled CLIP loss: {sum(clip_losses)}, Unscaled Fluency loss: {sum(fluency_losses)}')
 
         avg_frame_similarities = torch.cat(avg_frame_similarities)
-        caption_to_all_frame_prob = nn.functional.softmax(avg_frame_similarities * self.clip_scale)
-        caption_to_language_prob = nn.functional.softmax(torch.cat(avg_perplexities, dim=0) * self.ce_scale, 0)
+        caption_to_all_frame_prob = nn.functional.softmax(avg_frame_similarities * self.clip_scale) # clip score
+        caption_to_language_prob = nn.functional.softmax(torch.cat(avg_perplexities, dim=0) * self.ce_scale, 0) # perplexity
         mixed_score = caption_to_all_frame_prob * caption_to_language_prob
 
         clip_ordered_caption_prob, clip_caption_ordering = avg_frame_similarities.sort(descending=True)
@@ -381,7 +409,7 @@ class CLIPTextGenerator:
                 seq_lengths[~is_stopped] += 1
                 scores_sum_average = scores_sum / seq_lengths[:, None]
                 scores_sum_average, next_tokens = scores_sum_average.view(-1).topk(beam_size, -1)
-                next_tokens_source = next_tokens // scores_sum.shape[1]
+                next_tokens_source = torch.div(next_tokens, scores_sum.shape[1], rounding_mode='trunc')
                 seq_lengths = seq_lengths[next_tokens_source]
                 next_tokens = next_tokens % scores_sum.shape[1]
                 next_tokens = next_tokens.unsqueeze(1)

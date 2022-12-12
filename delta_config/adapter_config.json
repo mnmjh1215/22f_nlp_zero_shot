@@ -1,0 +1,7 @@
+{
+    "delta_type": "adapter",
+    "bottleneck": 64
+    "modified_modules": [
+        "c_attn"
+    ]
+}
