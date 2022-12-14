@@ -79,7 +79,6 @@ class CLIPTextGenerator:
         if lm_model == 'gpt-neo':
             self.lm_tokenizer = GPT2Tokenizer.from_pretrained('EleutherAI/gpt-neo-125M')
             self.lm_model = GPTNeoForCausalLM.from_pretrained('EleutherAI/gpt-neo-125M', output_hidden_states=True)
-            self.context_prefix = self.lm_tokenizer.bos_token
         elif lm_model == 'gpt-2':
             self.lm_tokenizer = GPT2Tokenizer.from_pretrained('gpt2-medium')
             self.lm_model = GPT2LMHeadModel.from_pretrained('gpt2-medium', output_hidden_states=True)
@@ -125,20 +124,20 @@ class CLIPTextGenerator:
         # Below options must be 2 tokens only to avoid alignment issues
         if randomized_prompt:
             print('using random prompts...')
-            self.context_options = ['Image of', 'Picture of', 'Photo of',# 'Video of',
-                                    'Image shows', 'Picture shows', 'Photo shows', #'Video shows',
-                                    'Image showing', 'Picture showing', 'Photo showing',]#'Video showing']
+            self.context_options = ['Image of', 'Picture of', 'Photo of', 'Video of',
+                                    'Image shows', 'Picture shows', 'Photo shows', 'Video shows',
+                                    'Image showing', 'Picture showing', 'Photo showing', 'Video showing']
             prompt_len = 2
         else:
             self.context_options = ['']
             prompt_len = 0
         test_prefixes = [self.context_prefix + choice for choice in self.context_options]
-
         test_generated_tokens = self.lm_tokenizer.batch_encode_plus(
             test_prefixes, return_tensors='pt', return_attention_mask=False, padding=True)["input_ids"].to(self.device)
         prefix_len = prompt_len + 1
         assert test_generated_tokens.shape[1] == prefix_len, \
             f"All appended context options must be of exactly length {prefix_len}!"
+
         self.end_token = self.lm_tokenizer.encode(end_token)[0]
 
         # Special char signifying a space for GPT-2, decoded into space by tokenizer
@@ -252,7 +251,7 @@ class CLIPTextGenerator:
         return image_features.detach()
 
     def get_txt_features(self, text):
-        clip_texts = clip.tokenize(text, truncate=True).to(self.device)
+        clip_texts = clip.tokenize(text).to(self.device)
 
         with torch.no_grad():
             text_features = self.clip.encode_text(clip_texts)

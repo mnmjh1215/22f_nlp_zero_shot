@@ -1,0 +1,13 @@
+pandas
+numpy
+delta_center_client==0.0.4
+ftfy 
+regex 
+tqdm
+torch==1.9
+torchvision
+transformers==4.11.2
+sentencepiece
+git+https://github.com/openai/CLIP.git
+opencv-python
+spacy

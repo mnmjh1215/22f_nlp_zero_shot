@@ -1,6 +1,5 @@
 {
-    "delta_type": "adapter",
-    "bottleneck": 64
+    "delta_type": "lora",
     "modified_modules": [
         "c_attn"
     ]

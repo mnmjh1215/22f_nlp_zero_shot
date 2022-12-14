@@ -3,7 +3,7 @@
 import argparse
 import logging
 import clip
-from model.CapGenerator import CLIPTextGenerator
+from model.ModifiedCapGenerator import CLIPTextGenerator
 import torch
 import os
 # from data_loader import VideosDataset, ImagesDataset, ImagesPairsDataset

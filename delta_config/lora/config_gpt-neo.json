@@ -3,6 +3,7 @@
     "lora_r": 8,
     "lora_alpha": 8,
     "modified_modules": [
-        "c_attn"
+        "v_proj",
+        "q_proj"
     ]
 }

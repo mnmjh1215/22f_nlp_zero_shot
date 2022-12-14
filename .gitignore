@@ -1,3 +1,4 @@
 __pycache__/
 clip_checkpoints
 results/*
+datasets/*
