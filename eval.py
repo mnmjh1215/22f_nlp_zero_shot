@@ -19,7 +19,6 @@ from PIL import Image
 from clipscore import CLIPScorer
 from tqdm import tqdm
 from collections import Counter
-import spacy
 
 def get_parser():
     parser = argparse.ArgumentParser()

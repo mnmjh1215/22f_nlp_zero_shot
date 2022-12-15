@@ -19,7 +19,6 @@ from PIL import Image
 from clipscore import CLIPScorer
 from tqdm import tqdm
 from collections import Counter
-import spacy
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -50,10 +49,6 @@ def get_parser():
     parser.add_argument("--end_token", type=str, default=".", help="Token to end text")
     parser.add_argument("--pairs_path", type=str, default="")
 
-    parser.add_argument("--clip_reward_alpha", default=50, type=float)
-    parser.add_argument("--clip_reward_beta", default=-10, type=float)
-    parser.add_argument("--log_prob_reward_scale", default=1.0, type=float)
-
     parser.add_argument("--img_dir", type=str, default="dataset/COCO/val2014")
     parser.add_argument("--coco_json_path", type=str, default="dataset/COCO/karpathy_dataset_coco.json")
     parser.add_argument("--num_test", default=1000, type=int,
@@ -62,7 +57,7 @@ def get_parser():
     parser.add_argument("--strip_prompt", default=False, type=str2bool)
     parser.add_argument("--clip_embedding_path", default='coco_val_embeddings.pt')
     parser.add_argument("--num_neg", default=5, type=int)
-    parser.add_argument("--neg_scale", default=0.5, type=float)
+    parser.add_argument("--neg_scale", default=1.0, type=float)
     parser.add_argument("--verbose", action='store_true')
     return parser
 
