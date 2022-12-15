@@ -30,7 +30,7 @@ python compute_clip_embed.py <path to save embeddings.pt> --img_dir <path to COC
 Then, to evaluate our approach on 1,000 test images, run following command.
 
 ```
-python neg_eval.py --token_wise --randomized_prompt --img_dir <path to COCO val2014 dir> --coco_json_path <path to karpathy split json> --coco_embedding_path <path to computed embeddings.pt> --num_test 1000 --num_neg 5 --neg_scale 1.0 --result_save_path <path to save result json file>
+python dynamic_scale_neg_eval.py --token_wise --randomized_prompt --img_dir <path to COCO val2014 dir> --coco_json_path <path to karpathy split json> --coco_embedding_path <path to computed embeddings.pt> --num_test 1000 --num_neg 10 --neg_scale 1.0 --result_save_path <path to save result json file>
 ```
 
 ### Further Evaluation
