@@ -61,7 +61,6 @@ def main():
     txt2img_sims = txt_embeddings @ img_embeddings.T
     img2img_sims = img_embeddings @ img_embeddings.T
 
-    # metric 1) diff between clip score and that of unrelated images
     percentiles = args.percentiles
     if 1.0 in percentiles: percentiles.remove(1.0)  # for 100% percentile, we need to remove real clipscore
     diffs = {k:[] for k in percentiles}
@@ -75,7 +74,7 @@ def main():
             unrelated_clipscore_max = 2.5 * torch.clip(txt2img_sims[i][unrelated_img_idxs], 0, None).max()
             diffs[r].append(clipscore - unrelated_clipscore_max)
 
-        # for 100% percentile, remove 
+        # for 100% percentile, get maximum clipscore from all images except ground-truth image
         rest_sims = txt2img_sims[i].clone()
         rest_sims[i] = -100
         max_of_rest_idx = torch.argmax(rest_sims)
