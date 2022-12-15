@@ -31,7 +31,7 @@ def get_parser():
     parser.add_argument("--img_dir", type=str, default="dataset/COCO/val2014")
     parser.add_argument("--result_path", type=str, default='zerocap-1000.json')
     parser.add_argument("--clip_checkpoints", type=str, default="./clip_checkpoints", help="path to CLIP")
-    parser.add_argument("--ratios", default=[0.5, 0.75, 0.9, 0.99], type=float, nargs='+')
+    parser.add_argument("--percentiles", default=[0.5, 0.75, 0.9, 0.99], type=float, nargs='+')
 
     return parser
 
@@ -62,20 +62,20 @@ def main():
     img2img_sims = img_embeddings @ img_embeddings.T
 
     # metric 1) diff between clip score and that of unrelated images
-    ratios = args.ratios
-    if 1.0 in ratios: ratios.remove(1.0)  # for 1.0, we need to remove real clipscore
-    diffs = {k:[] for k in ratios}
+    percentiles = args.percentiles
+    if 1.0 in percentiles: percentiles.remove(1.0)  # for 100% percentile, we need to remove real clipscore
+    diffs = {k:[] for k in percentiles}
     diffs[1.0] = []
     n_eval = txt2img_sims.size(0)
     for i in tqdm(range(n_eval)):
         clipscore = 2.5 * torch.clip(txt2img_sims[i, i], 0, None)
 
-        for r in ratios:
+        for r in percentiles:
             unrelated_img_idxs = torch.argsort(img2img_sims[i])[:int(n_eval * r)]
             unrelated_clipscore_max = 2.5 * torch.clip(txt2img_sims[i][unrelated_img_idxs], 0, None).max()
             diffs[r].append(clipscore - unrelated_clipscore_max)
 
-        # for ratio 1.0, remove 
+        # for 100% percentile, remove 
         rest_sims = txt2img_sims[i].clone()
         rest_sims[i] = -100
         max_of_rest_idx = torch.argmax(rest_sims)
