@@ -1,4 +1,4 @@
-# Zero-Shot Video Captioning with Negative Image Retrieval
+# Zero-Shot Image Captioning with Negative Image Retrieval and Dynamic Scale
 
 This repository contains code for our team project for SNU Natural Language Processing course (2022 Fall).
 
